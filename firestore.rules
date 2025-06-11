@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 用户文档规则 - 只有经过认证的用户才能访问自己的数据
+    match /users/{userId} {
+      // 只允许用户访问自己的文档
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // 确保数据结构正确
+      allow create: if request.auth != null 
+                   && request.auth.uid == userId
+                   && validateUserData(resource.data);
+      
+      allow update: if request.auth != null 
+                   && request.auth.uid == userId
+                   && validateUserData(resource.data);
+    }
+    
+    // 拒绝其他所有访问
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+// 验证用户数据结构的函数
+function validateUserData(data) {
+  return data.keys().hasAll(['dailyTasks', 'singleTasks', 'completedTasks', 'statistics']) &&
+         data.dailyTasks is list &&
+         data.singleTasks is list &&
+         data.completedTasks is list &&
+         data.statistics is map;
+} 

@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Daily Planning System</title>
+    <meta name="description" content="PlanEveryDay - Professional personal daily planning and task management system, helping you efficiently manage daily goals and track progress.">
+    <meta name="keywords" content="daily planning, task management, goal tracking, productivity, personal planner">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, doc, setDoc, getDoc, collection, getDocs, addDoc, updateDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        
+        // Firebase配置
+        const firebaseConfig = {
+            apiKey: "AIzaSyDp-8_ZytQcKtEPuyRDzh-aPYMIwoaUjME",
+            authDomain: "planeveryday-b5a14.firebaseapp.com",
+            projectId: "planeveryday-b5a14",
+            storageBucket: "planeveryday-b5a14.firebasestorage.app",
+            messagingSenderId: "273640382957",
+            appId: "1:273640382957:web:cefb318f11a0d71b9cc7e4",
+            measurementId: "G-137HMNFP8P"
+        };
+        
+        // 初始化Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const firestore = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+        
+        // 将Firebase相关对象暴露到全局，以便其他脚本使用
+        window.firebaseAuth = auth;
+        window.firebaseFirestore = firestore;
+        window.googleProvider = provider;
+        window.firebaseSignInWithPopup = signInWithPopup;
+        window.firebaseSignOut = signOut;
+        window.firebaseOnAuthStateChanged = onAuthStateChanged;
+        
+        // Firestore 方法
+        window.firestoreDoc = doc;
+        window.firestoreSetDoc = setDoc;
+        window.firestoreGetDoc = getDoc;
+        window.firestoreCollection = collection;
+        window.firestoreGetDocs = getDocs;
+        window.firestoreAddDoc = addDoc;
+        window.firestoreUpdateDoc = updateDoc;
+        window.firestoreDeleteDoc = deleteDoc;
+    </script>
+    <link rel="stylesheet" href="style.css">
+    <!-- Configure Tailwind custom colors -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        // Apple typical color scheme
+                        'apple-blue': '#007AFF',
+                        'apple-gray': '#8E8E93',
+                        'apple-light-gray': '#F2F2F7',
+                        'apple-dark': '#1C1C1E',
+                        'apple-green': '#34C759',
+                        'apple-red': '#FF3B30',
+                        'apple-orange': '#FF9500',
+                        'apple-purple': '#AF52DE',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-apple-light-gray min-h-screen">
+    <!-- Navigation Bar -->
+    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-semibold text-apple-dark ml-2" data-i18n="nav.title">Personal Daily Planning</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <!-- Language Toggle Button -->
+                    <button id="languageToggle" class="flex items-center space-x-1 px-3 py-2 rounded-lg text-sm font-medium bg-apple-light-gray text-apple-dark hover:bg-apple-blue hover:text-white transition-all">
+                        <span id="currentLang">EN</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"></path>
+                        </svg>
+                    </button>
+                    
+                    <!-- User Authentication Area -->
+                    <div id="authContainer" class="flex items-center space-x-3">
+                        <!-- 数据同步状态指示器 -->
+                        <div id="syncStatus" class="hidden items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium bg-apple-light-gray text-apple-gray">
+                            <div id="syncIndicator" class="w-2 h-2 rounded-full bg-apple-gray"></div>
+                            <span id="syncText">本地</span>
+                        </div>
+                        
+                        <!-- 未登录状态 -->
+                        <div id="loginSection" class="flex items-center space-x-2">
+                            <button id="googleLoginBtn" class="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all shadow-sm">
+                                <svg class="w-4 h-4" viewBox="0 0 24 24">
+                                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                                </svg>
+                                <span data-i18n="auth.signInWithGoogle">使用Google登录</span>
+                            </button>
+                        </div>
+                        
+                        <!-- 已登录状态 -->
+                        <div id="userSection" class="hidden flex items-center space-x-3">
+                            <div class="flex items-center space-x-2">
+                                <div id="userAvatarContainer" class="w-8 h-8 rounded-full border-2 border-apple-blue bg-apple-light-gray flex items-center justify-center">
+                                    <img id="userAvatar" src="" alt="User Avatar" class="w-8 h-8 rounded-full object-cover hidden">
+                                    <span id="userInitials" class="text-xs font-semibold text-apple-blue">?</span>
+                                </div>
+                                <span id="userName" class="text-sm font-medium text-apple-dark max-w-32 truncate"></span>
+                            </div>
+                            <button id="signOutBtn" class="px-3 py-2 text-sm font-medium text-apple-gray hover:text-apple-red transition-all" data-i18n="auth.signOut">
+                                退出
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Navigation buttons -->
+                    <button id="homeBtn" class="nav-btn active px-3 py-2 rounded-lg text-sm font-medium" data-i18n="nav.home">
+                        Home
+                    </button>
+                    <button id="tasksBtn" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium" data-i18n="nav.tasks">
+                        Task Management
+                    </button>
+                    <button id="statisticsBtn" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium" data-i18n="nav.statistics">
+                        Statistics
+                    </button>
+                    <button id="unfinishedBtn" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium" data-i18n="nav.pending">
+                        Pending Tasks
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main content area -->
+    <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Home panel -->
+        <div id="homePanel" class="panel active">
+            <!-- Top statistics area - Dual card layout -->
+            <div class="top-stats-section grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
+                <div class="stat-card-dual bg-white rounded-2xl p-6 shadow-sm">
+                    <div class="stat-top-text text-sm font-medium text-apple-gray mb-2" data-i18n="home.totalCompleted">Total Completed Tasks</div>
+                    <div class="stat-main-number text-4xl font-bold text-apple-blue mb-2" id="totalCompleted">0</div>
+                    <div class="stat-bottom-text text-sm font-medium text-apple-gray" data-i18n="home.tasks">tasks</div>
+                </div>
+                <div class="stat-card-dual bg-white rounded-2xl p-6 shadow-sm">
+                    <div class="stat-top-text text-sm font-medium text-apple-gray mb-2" data-i18n="home.persistentFor">Persistent For</div>
+                    <div class="stat-main-timer text-3xl font-semibold text-apple-green mb-2" id="persistTimer">000:00:00</div>
+                </div>
+            </div>
+
+            <!-- Daily task cumulative display -->
+            <div class="bg-white rounded-2xl p-7 shadow-sm mb-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-lg font-semibold text-apple-dark" data-i18n="home.dailyTaskData">Daily Task Cumulative Data</h3>
+                    <div class="flex items-center space-x-2">
+                        <button id="dailyStatsLeft" class="w-8 h-8 rounded-full bg-apple-light-gray flex items-center justify-center text-apple-gray hover:bg-apple-blue hover:text-white transition-all">
+                            ←
+                        </button>
+                        <button id="dailyStatsRight" class="w-8 h-8 rounded-full bg-apple-light-gray flex items-center justify-center text-apple-gray hover:bg-apple-blue hover:text-white transition-all">
+                            →
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="daily-stats-container overflow-hidden">
+                    <div class="daily-stats-wrapper flex transition-transform duration-300" id="dailyStatsWrapper">
+                        <!-- Daily task statistics cards will be dynamically generated by JavaScript -->
+                    </div>
+                </div>
+                
+                <!-- Indicators -->
+                <div class="flex justify-center mt-4">
+                    <div id="dailyStatsIndicators" class="flex space-x-2">
+                        <!-- Indicator dots will be dynamically generated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Today's task overview -->
+            <div class="bg-white rounded-2xl p-7 shadow-sm mb-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-lg font-semibold text-apple-dark" data-i18n="home.todayTasks">Today's Tasks</h2>
+                    <span class="text-sm text-apple-gray" id="todayDate"></span>
+                </div>
+                <div id="todayTasksOverview" class="space-y-3">
+                    <!-- Today's tasks will be dynamically loaded by JavaScript -->
+                </div>
+                <div class="mt-4 pt-4 border-t border-gray-100">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-apple-gray" data-i18n="home.progress">Progress</span>
+                        <span class="text-apple-gray" id="todayProgress">0/0</span>
+                    </div>
+                    <div class="mt-2 bg-gray-200 rounded-full h-2">
+                        <div class="bg-apple-blue h-2 rounded-full transition-all duration-300" id="todayProgressBar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick add task -->
+            <div class="bg-white rounded-2xl p-7 shadow-sm">
+                <h2 class="text-lg font-semibold text-apple-dark mb-4" data-i18n="home.quickAdd">Quick Add Task</h2>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <input type="text" id="quickTaskInput" data-i18n-placeholder="home.quickAddPlaceholder" placeholder="Enter task name..." 
+                           class="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-apple-blue focus:border-transparent">
+                    <button id="quickAddBtn" class="px-6 py-3 bg-apple-blue text-white rounded-xl hover:bg-opacity-90 transition-all" data-i18n="home.quickAddBtn">
+                        Add Today's Task
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Task management panel -->
+        <div id="tasksPanel" class="panel">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Daily task management -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-lg font-semibold text-apple-dark" data-i18n="tasks.dailyTitle">Daily Task Management</h2>
+                        <button id="addDailyTaskBtn" class="px-4 py-2 bg-apple-blue text-white rounded-lg text-sm hover:bg-opacity-90 transition-all" data-i18n="tasks.addDaily">
+                            + Add Daily Task
+                        </button>
+                    </div>
+                    <div id="dailyTasksList" class="space-y-3">
+                        <!-- Daily task list will be dynamically loaded by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Single task management -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-lg font-semibold text-apple-dark" data-i18n="tasks.singleTitle">Single Task Management</h2>
+                        <button id="addSingleTaskBtn" class="px-4 py-2 bg-apple-green text-white rounded-lg text-sm hover:bg-opacity-90 transition-all" data-i18n="tasks.addSingle">
+                            + Add Single Task
+                        </button>
+                    </div>
+                    <div id="singleTasksList" class="space-y-3">
+                        <!-- Single task list will be dynamically loaded by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Future task preview -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm mt-8">
+                <h2 class="text-lg font-semibold text-apple-dark mb-6" data-i18n="tasks.futureTitle">Future Task Preview</h2>
+                <div id="futureTasksPreview" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Future task preview will be dynamically loaded by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics panel -->
+        <div id="statisticsPanel" class="panel">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <!-- Completion trend chart -->
+                <div class="glass-card rounded-2xl p-7 shadow-sm">
+                    <h2 class="text-lg font-semibold text-apple-dark mb-4" data-i18n="stats.trendTitle">Completion Trends</h2>
+                    <div class="chart-container-small">
+                        <canvas id="completionTrendChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Task category statistics -->
+                <div class="glass-card rounded-2xl p-7 shadow-sm">
+                    <h2 class="text-lg font-semibold text-apple-dark mb-4" data-i18n="stats.categoryTitle">Task Category Statistics</h2>
+                    <div class="chart-container-small">
+                        <canvas id="taskCategoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed statistics -->
+            <div class="glass-card rounded-2xl p-6 shadow-sm">
+                <h2 class="text-lg font-semibold text-apple-dark mb-6" data-i18n="stats.detailedTitle">Detailed Statistics</h2>
+                <div id="detailedStats" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Detailed statistics will be dynamically loaded by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending tasks panel -->
+        <div id="unfinishedPanel" class="panel">
+            <div class="glass-card rounded-2xl p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-lg font-semibold text-apple-dark" data-i18n="pending.title">Pending Task Management</h2>
+                    <div class="flex items-center space-x-2">
+                        <select id="unfinishedFilter" class="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-apple-blue">
+                            <option value="all" data-i18n="pending.all">All</option>
+                            <option value="未完成" data-i18n="pending.incomplete">Incomplete</option>
+                            <option value="搁置" data-i18n="pending.onHold">On Hold</option>
+                            <option value="放弃" data-i18n="pending.abandoned">Abandoned</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="unfinishedTasksList" class="space-y-3">
+                    <!-- Pending task list will be dynamically loaded by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Task completion modal -->
+    <div id="completionModal" class="modal">
+        <div class="modal-content bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+            <div class="flex items-center justify-between mb-6">
+                <h3 id="completionModalTitle" class="text-lg font-semibold text-apple-dark" data-i18n="modal.completeTask">Complete Task</h3>
+                <button id="closeCompletionModal" class="text-apple-gray hover:text-apple-dark">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <form id="completionForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-apple-dark mb-2" data-i18n="modal.taskName">Task Name</label>
+                    <div id="completionTaskName" class="px-4 py-3 bg-gray-50 rounded-xl text-apple-dark"></div>
+                </div>
+
+                <div id="completionValueDiv">
+                    <label class="block text-sm font-medium text-apple-dark mb-2" data-i18n="modal.actualAmount">Actual Completion Amount</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="completionValue" 
+                               class="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-apple-blue focus:border-transparent"
+                               data-i18n-placeholder="modal.enterAmount" placeholder="Enter actual completion amount">
+                        <span id="completionUnit" class="text-sm text-apple-gray">times</span>
+                    </div>
+                    <p class="text-xs text-apple-gray mt-2" data-i18n="modal.leaveBlank">Leave blank to use default target value</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-apple-dark mb-2" data-i18n="modal.notes">Notes (Optional)</label>
+                    <textarea id="completionNote" 
+                              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-apple-blue focus:border-transparent resize-none"
+                              rows="3"
+                              data-i18n-placeholder="modal.notesPlaceholder" placeholder="Record your thoughts, gains, or issues encountered..."></textarea>
+                </div>
+
+                <div class="flex space-x-3 pt-4">
+                    <button type="button" id="cancelCompletionBtn" 
+                            class="flex-1 px-4 py-3 border border-gray-200 text-apple-gray rounded-xl hover:bg-gray-50 transition-all"
+                            data-i18n="modal.cancel">
+                        Cancel
+                    </button>
+                    <button type="submit" 
+                            class="flex-1 px-4 py-3 bg-apple-green text-white rounded-xl hover:bg-opacity-90 transition-all"
+                            data-i18n="modal.confirm">
+                        Confirm Completion
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add task modal -->
+    <div id="taskModal" class="modal">
+        <div class="modal-content bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+            <div class="flex items-center justify-between mb-6">
+                <h3 id="modalTitle" class="text-lg font-semibold text-apple-dark" data-i18n="modal.addTask">Add Task</h3>
+                <button id="closeModal" class="text-apple-gray hover:text-apple-dark">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <form id="taskForm" class="space-y-4">
+                <!-- Task name -->
+                <div>
+                    <label class="block text-sm font-medium text-apple-dark mb-2" data-i18n="modal.taskNameLabel">Task Name</label>
+                    <input type="text" id="taskName" required 
+                           class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-apple-blue focus:border-transparent"
+                           data-i18n-placeholder="modal.taskNamePlaceholder" placeholder="Enter task name">
+                </div>
+
+                <!-- Task type -->
+                <div>
+                    <label class="block text-sm font-medium text-apple-dark mb-2" data-i18n="modal.taskType">Task Type</label>
+                    <select id="taskType" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-apple-blue focus:border-transparent">
+                        <option value="daily" data-i18n="modal.dailyTask">Daily Task</option>
+                        <option value="single" data-i18n="modal.singleTask">Single Task</option>
+                    </select>
+                </div>
+
+                <!-- Dimension type -->
+                <div id="dimensionType">
+                    <label class="block text-sm font-medium text-apple-dark mb-2" data-i18n="modal.dimensionType">Dimension Type</label>
+                    <select id="dimension" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-apple-blue focus:border-transparent">
+                        <option value="count" data-i18n="modal.countDimension">Count Dimension</option>
+                        <option value="time" data-i18n="modal.timeDimension">Time Dimension</option>
+                        <option value="simple" data-i18n="modal.simpleCompletion">Simple Completion</option>
+                    </select>
+                </div>
+
+                <!-- Target value -->
+                <div id="targetValueDiv">
+                    <label class="block text-sm font-medium text-apple-dark mb-2" data-i18n="modal.targetValue">Target Value</label>
+                    <div class="flex items-center space-x-2">
+                        <input type="number" id="targetValue" 
+                               class="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-apple-blue focus:border-transparent"
+                               data-i18n-placeholder="modal.targetValuePlaceholder" placeholder="Enter target value">
+                        <span id="unitLabel" class="text-sm text-apple-gray">times</span>
+                    </div>
+                </div>
+
+                <!-- Date settings -->
+                <div id="dateSettings">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-apple-dark mb-2" data-i18n="modal.startDate">Start Date</label>
+                            <input type="date" id="startDate" 
+                                   class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-apple-blue focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-apple-dark mb-2" data-i18n="modal.endDate">End Date</label>
+                            <input type="date" id="endDate" 
+                                   class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-apple-blue focus:border-transparent">
+                        </div>
+                    </div>
+                    <p class="text-xs text-apple-gray mt-2" data-i18n="modal.dateNote">Leave blank for continuous tasks</p>
+                </div>
+
+                <!-- Single task date -->
+                <div id="singleDateDiv" style="display: none;">
+                    <label class="block text-sm font-medium text-apple-dark mb-2" data-i18n="modal.completionDate">Completion Date</label>
+                    <input type="date" id="singleDate" 
+                           class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-apple-blue focus:border-transparent">
+                </div>
+
+                <!-- Submit button -->
+                <div class="flex space-x-3 pt-4">
+                    <button type="button" id="cancelBtn" 
+                            class="flex-1 px-4 py-3 border border-gray-200 text-apple-gray rounded-xl hover:bg-gray-50 transition-all"
+                            data-i18n="modal.cancel">
+                        Cancel
+                    </button>
+                    <button type="submit" 
+                            class="flex-1 px-4 py-3 bg-apple-blue text-white rounded-xl hover:bg-opacity-90 transition-all"
+                            data-i18n="modal.addTaskBtn">
+                        Add Task
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notification permission prompt -->
+    <div id="notificationPrompt" class="notification-prompt" style="display: none;">
+        <div class="bg-white rounded-xl p-4 shadow-lg border">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-apple-blue/10 rounded-full flex items-center justify-center">
+                        <span class="text-apple-blue text-sm">🔔</span>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-apple-dark" data-i18n="notification.enable">Enable Notifications</p>
+                        <p class="text-xs text-apple-gray" data-i18n="notification.description">Get task completion reminders</p>
+                    </div>
+                </div>
+                <div class="flex space-x-2">
+                    <button id="enableNotifications" class="px-3 py-1 bg-apple-blue text-white text-xs rounded-lg hover:bg-opacity-90" data-i18n="notification.enableBtn">
+                        Enable
+                    </button>
+                    <button id="dismissNotifications" class="px-3 py-1 text-apple-gray text-xs hover:text-apple-dark" data-i18n="notification.dismiss">
+                        Dismiss
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 

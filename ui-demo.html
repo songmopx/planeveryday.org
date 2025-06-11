@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人每日规划 - UI优化演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* 导航栏 */
+        .nav-bar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 16px 24px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+        }
+
+        .nav-link {
+            padding: 8px 16px;
+            border-radius: 20px;
+            color: #666;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link.active {
+            background: #007AFF;
+            color: white;
+        }
+
+        /* 顶部统计区域 - 双卡片并排布局 */
+        .top-stats-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 32px;
+            width: 100%;
+        }
+
+        .stat-card-dual {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 18px;
+            padding: 24px 20px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            min-height: 100px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card-dual:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.12);
+        }
+
+        .stat-card-dual::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #007AFF, #34C759);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .stat-card-dual:hover::before {
+            opacity: 1;
+        }
+
+        .stat-top-text {
+            font-size: 13px;
+            font-weight: 500;
+            color: #8E8E93;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-main-number {
+            font-size: 42px;
+            font-weight: 700;
+            color: #007AFF;
+            animation: breathe 3s ease-in-out infinite;
+            line-height: 1;
+            margin: 6px 0;
+        }
+
+        .stat-main-timer {
+            font-size: 32px;
+            font-weight: 600;
+            color: #34C759;
+            font-family: 'Monaco', 'Menlo', monospace;
+            animation: pulse 1s ease-in-out infinite;
+            line-height: 1;
+            margin: 12px 0;
+        }
+
+        .stat-bottom-text {
+            font-size: 13px;
+            font-weight: 500;
+            color: #8E8E93;
+            margin-top: 8px;
+            letter-spacing: 0.3px;
+        }
+
+        /* 动画效果 */
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* 每日任务数据区域 */
+        .daily-tasks-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 18px;
+            padding: 28px;
+            margin-bottom: 28px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+        }
+
+        .daily-tasks-section:hover {
+            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.12);
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .tasks-container {
+            position: relative;
+        }
+
+        .tasks-slider {
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            padding-bottom: 8px;
+        }
+
+        .tasks-slider::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .tasks-slider::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 2px;
+        }
+
+        .tasks-slider::-webkit-scrollbar-thumb {
+            background: #007AFF;
+            border-radius: 2px;
+        }
+
+        .task-card {
+            min-width: 280px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            flex-shrink: 0;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .task-card:hover {
+            border-color: #007AFF;
+            transform: translateY(-2px);
+        }
+
+        .task-name {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #333;
+        }
+
+        .task-stats {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .task-stat {
+            text-align: center;
+        }
+
+        .task-stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #007AFF;
+            margin-bottom: 4px;
+        }
+
+        .task-stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* 导航点 */
+        .slider-dots {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ddd;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .dot.active {
+            background: #007AFF;
+        }
+
+        /* 今日任务区域 */
+        .today-tasks {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 18px;
+            padding: 28px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+        }
+
+        .today-tasks:hover {
+            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.12);
+        }
+
+        .today-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .today-date {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .task-item:last-child {
+            border-bottom: none;
+        }
+
+        .task-checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ddd;
+            border-radius: 50%;
+            margin-right: 12px;
+            cursor: pointer;
+        }
+
+        .task-info {
+            flex: 1;
+        }
+
+        .task-title {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .task-target {
+            font-size: 14px;
+            color: #666;
+        }
+
+                 /* 响应式设计 */
+        @media (max-width: 768px) {
+            .nav-links {
+                gap: 12px;
+            }
+            
+            .nav-link {
+                padding: 6px 12px;
+                font-size: 14px;
+            }
+            
+            .top-stats-section {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            
+            .stat-card-dual {
+                min-height: 80px;
+                padding: 16px;
+            }
+            
+            .stat-main-number {
+                font-size: 32px;
+            }
+            
+            .stat-main-timer {
+                font-size: 24px;
+            }
+            
+            .task-card {
+                min-width: 240px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 导航栏 -->
+        <nav class="nav-bar">
+            <div class="logo">个人每日规划</div>
+            <div class="nav-links">
+                <a href="#" class="nav-link active">首页</a>
+                <a href="#" class="nav-link">任务管理</a>
+                <a href="#" class="nav-link">数据统计</a>
+                <a href="#" class="nav-link">未完成任务</a>
+            </div>
+        </nav>
+
+        <!-- 顶部统计区域 - 双卡片并排布局 -->
+        <div class="top-stats-section">
+            <div class="stat-card-dual">
+                <div class="stat-top-text">累计完成任务</div>
+                <div class="stat-main-number" id="totalTasks">5</div>
+                <div class="stat-bottom-text">个任务</div>
+            </div>
+            <div class="stat-card-dual">
+                <div class="stat-top-text">已经坚持</div>
+                <div class="stat-main-timer" id="persistTimer">281:41:17</div>
+            </div>
+        </div>
+
+        <!-- 每日任务累计数据区域 -->
+        <div class="daily-tasks-section">
+            <h2 class="section-title">每日任务累计数据</h2>
+            <div class="tasks-container">
+                <div class="tasks-slider">
+                    <div class="task-card">
+                        <div class="task-name">📚 读书</div>
+                        <div class="task-stats">
+                            <div class="task-stat">
+                                <div class="task-stat-number">15</div>
+                                <div class="task-stat-label">完成天数</div>
+                            </div>
+                            <div class="task-stat">
+                                <div class="task-stat-number">450</div>
+                                <div class="task-stat-label">累计分钟</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="task-card">
+                        <div class="task-name">🏃‍♂️ 运动</div>
+                        <div class="task-stats">
+                            <div class="task-stat">
+                                <div class="task-stat-number">10</div>
+                                <div class="task-stat-label">完成天数</div>
+                            </div>
+                            <div class="task-stat">
+                                <div class="task-stat-number">25</div>
+                                <div class="task-stat-label">累计次数</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="task-card">
+                        <div class="task-name">💧 喝水</div>
+                        <div class="task-stats">
+                            <div class="task-stat">
+                                <div class="task-stat-number">8</div>
+                                <div class="task-stat-label">完成天数</div>
+                            </div>
+                            <div class="task-stat">
+                                <div class="task-stat-number">64</div>
+                                <div class="task-stat-label">累计杯数</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="task-card">
+                        <div class="task-name">📝 写作</div>
+                        <div class="task-stats">
+                            <div class="task-stat">
+                                <div class="task-stat-number">6</div>
+                                <div class="task-stat-label">完成天数</div>
+                            </div>
+                            <div class="task-stat">
+                                <div class="task-stat-number">180</div>
+                                <div class="task-stat-label">累计分钟</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slider-dots">
+                    <div class="dot active"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 今日任务区域 -->
+        <div class="today-tasks">
+            <div class="today-header">
+                <h2 class="section-title">今日任务</h2>
+                <div class="today-date">2025-01-07</div>
+            </div>
+            <div class="task-item">
+                <div class="task-checkbox"></div>
+                <div class="task-info">
+                    <div class="task-title">读书</div>
+                    <div class="task-target">目标: 30 分钟</div>
+                </div>
+            </div>
+            <div class="task-item">
+                <div class="task-checkbox"></div>
+                <div class="task-info">
+                    <div class="task-title">运动</div>
+                    <div class="task-target">目标: 1 次</div>
+                </div>
+            </div>
+            <div class="task-item">
+                <div class="task-checkbox"></div>
+                <div class="task-info">
+                    <div class="task-title">喝水</div>
+                    <div class="task-target">目标: 8 杯</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 简单的滑动功能演示
+        const slider = document.querySelector('.tasks-slider');
+        const dots = document.querySelectorAll('.dot');
+        
+        dots.forEach((dot, index) => {
+            dot.addEventListener('click', () => {
+                dots.forEach(d => d.classList.remove('active'));
+                dot.classList.add('active');
+                slider.scrollLeft = index * 300;
+            });
+        });
+
+        // 持续计时器功能
+        function updateTimer() {
+            const timerElement = document.getElementById('persistTimer');
+            if (timerElement) {
+                // 模拟计时器更新
+                const now = new Date();
+                const startTime = new Date(now.getTime() - (281 * 3600 + 41 * 60 + 17) * 1000);
+                const diff = now - startTime;
+                
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                
+                timerElement.textContent = `${hours.toString().padStart(3, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                // 每小时检查是否需要撒花特效
+                if (minutes === 0 && seconds === 0) {
+                    showConfetti();
+                }
+            }
+        }
+
+        // 撒花特效
+        function showConfetti() {
+            // 创建撒花元素
+            const confettiContainer = document.createElement('div');
+            confettiContainer.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                z-index: 9999;
+            `;
+            document.body.appendChild(confettiContainer);
+
+            // 创建多个撒花片
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.style.cssText = `
+                    position: absolute;
+                    width: 8px;
+                    height: 8px;
+                    background: ${['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8'][Math.floor(Math.random() * 5)]};
+                    border-radius: 50%;
+                    top: -10px;
+                    left: ${Math.random() * 100}%;
+                    animation: confetti-fall ${2 + Math.random() * 3}s linear forwards;
+                `;
+                confettiContainer.appendChild(confetti);
+            }
+
+            // 移除撒花容器
+            setTimeout(() => {
+                document.body.removeChild(confettiContainer);
+            }, 5000);
+        }
+
+        // 添加撒花动画CSS
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes confetti-fall {
+                to {
+                    transform: translateY(100vh) rotate(360deg);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 启动计时器
+        updateTimer();
+        setInterval(updateTimer, 1000);
+    </script>
+</body>
+</html> 
