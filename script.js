@@ -789,6 +789,9 @@ class TaskManager {
             this.statistics = this.loadData(this.STORAGE_KEYS.STATISTICS) || this.initializeStatistics();
         }
         
+        // 清理数据分类错误
+        this.cleanupTaskClassification();
+        
         // 重新生成未来任务
         this.generateFutureTasks();
         
@@ -946,6 +949,44 @@ class TaskManager {
                     this.statistics.taskCategories[category] += guestStats.taskCategories[category];
                 }
             });
+        }
+    }
+
+    // 清理任务分类错误
+    cleanupTaskClassification() {
+        let needsSave = false;
+        
+        // 检查每日任务数组中是否有单日任务
+        const wronglyClassifiedDaily = this.dailyTasks.filter(task => task.type === 'single');
+        if (wronglyClassifiedDaily.length > 0) {
+            console.log('🔧 发现错误分类的单日任务在每日任务中:', wronglyClassifiedDaily.length);
+            // 移动到单日任务数组
+            wronglyClassifiedDaily.forEach(task => {
+                this.singleTasks.push(task);
+            });
+            // 从每日任务数组中移除
+            this.dailyTasks = this.dailyTasks.filter(task => task.type === 'daily');
+            needsSave = true;
+        }
+        
+        // 检查单日任务数组中是否有每日任务
+        const wronglyClassifiedSingle = this.singleTasks.filter(task => task.type === 'daily');
+        if (wronglyClassifiedSingle.length > 0) {
+            console.log('🔧 发现错误分类的每日任务在单日任务中:', wronglyClassifiedSingle.length);
+            // 移动到每日任务数组
+            wronglyClassifiedSingle.forEach(task => {
+                this.dailyTasks.push(task);
+            });
+            // 从单日任务数组中移除
+            this.singleTasks = this.singleTasks.filter(task => task.type === 'single');
+            needsSave = true;
+        }
+        
+        // 如果有修正，保存数据
+        if (needsSave) {
+            console.log('✅ 任务分类已修正，保存数据');
+            this.saveData(this.STORAGE_KEYS.DAILY_TASKS, this.dailyTasks);
+            this.saveData(this.STORAGE_KEYS.SINGLE_TASKS, this.singleTasks);
         }
     }
 
@@ -1857,20 +1898,24 @@ class TaskManager {
     updateDailyTasksList() {
         const container = document.getElementById('dailyTasksList');
         
-        if (this.dailyTasks.length === 0) {
-            container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><p>暂无每日任务</p></div>';
+        // 过滤出真正的每日任务（排除错误分类的单日任务）
+        const realDailyTasks = this.dailyTasks.filter(task => task.type === 'daily');
+        
+        if (realDailyTasks.length === 0) {
+            const isEnglish = document.documentElement.lang === 'en';
+            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><p>${currentLanguage === 'en' ? 'No daily tasks' : '暂无每日任务'}</p></div>`;
             return;
         }
 
-        container.innerHTML = this.dailyTasks.map(task => `
+        container.innerHTML = realDailyTasks.map(task => `
             <div class="task-item">
                 <div class="flex items-center justify-between">
                     <div>
                         <div class="font-medium text-apple-dark">${task.name}</div>
                         <div class="text-xs text-apple-gray">${this.getTaskDescription(task)}</div>
                         <div class="text-xs text-apple-gray">
-                            ${task.startDate ? `开始: ${task.startDate}` : ''}
-                            ${task.endDate ? ` 结束: ${task.endDate}` : ''}
+                            ${task.startDate ? `${currentLanguage === 'en' ? 'Start: ' : '开始: '}${task.startDate}` : ''}
+                            ${task.endDate ? ` ${currentLanguage === 'en' ? 'End: ' : '结束: '}${task.endDate}` : ''}
                         </div>
                     </div>
                     <div class="flex space-x-2">
@@ -2610,11 +2655,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.authManager = authManager; // 确保全局可访问
     authManager.init();
     
-    // 设置语言切换事件
-    const languageToggle = document.getElementById('languageToggle');
-    if (languageToggle) {
-        languageToggle.addEventListener('click', toggleLanguage);
-    }
+    // 语言切换事件已在TaskManager的setupEventListeners中设置，这里不需要重复设置
 }); 
 
 /* ==================== 国际化规则与检查工具 ==================== */
