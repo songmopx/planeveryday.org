@@ -216,6 +216,9 @@ class AuthManager {
             
             window.taskManager.updateAllDisplays();
         }
+        
+        // 确保语言设置正确更新
+        updateLanguage();
     }
 
     // 用户退出后的处理
@@ -228,6 +231,9 @@ class AuthManager {
             window.taskManager.updateAllDisplays();
             console.log('🔄 已切换到访客模式，显示本地数据');
         }
+        
+        // 确保语言设置正确更新
+        updateLanguage();
     }
 
     // 显示认证相关消息
@@ -707,7 +713,10 @@ class TaskManager {
         document.getElementById('dailyStatsRight').addEventListener('click', () => this.slideDailyStats(1));
         
         // 语言切换按钮
-        document.getElementById('languageToggle').addEventListener('click', () => toggleLanguage());
+        const languageToggleBtn = document.getElementById('languageToggle');
+        if (languageToggleBtn) {
+            languageToggleBtn.addEventListener('click', () => toggleLanguage());
+        }
     }
 
     // 面板切换功能
@@ -811,6 +820,13 @@ class TaskManager {
                 this.completedTasks = userData.completedTasks || [];
                 this.statistics = userData.statistics || this.initializeStatistics();
                 
+                // 同步计时器数据
+                if (userData.persistStartTime) {
+                    this.persistStartTime = userData.persistStartTime;
+                    this.saveData('persist_start_time', this.persistStartTime);
+                    this.startPersistTimer();
+                }
+                
                 console.log('✅ 从云端加载数据成功');
                 this.showNotification('数据已从云端同步', 'success');
             } else {
@@ -844,6 +860,7 @@ class TaskManager {
                 singleTasks: this.singleTasks,
                 completedTasks: this.completedTasks,
                 statistics: this.statistics,
+                persistStartTime: this.persistStartTime, // 同步计时器数据
                 lastUpdated: new Date().toISOString()
             };
 
@@ -1868,29 +1885,46 @@ class TaskManager {
 
     updateSingleTasksList() {
         const container = document.getElementById('singleTasksList');
+        const today = this.formatDate(new Date());
         
-        if (this.singleTasks.length === 0) {
+        // 只显示今日的单日任务
+        const todaySingleTasks = this.singleTasks.filter(task => task.date === today);
+        
+        if (todaySingleTasks.length === 0) {
             const isEnglish = document.documentElement.lang === 'en';
-            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📄</div><p>${currentLanguage === 'en' ? 'No single tasks' : '暂无单日任务'}</p></div>`;
+            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📄</div><p>${currentLanguage === 'en' ? 'No single tasks for today' : '今日暂无单日任务'}</p></div>`;
             return;
         }
 
-        container.innerHTML = this.singleTasks.map(task => `
-            <div class="task-item">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <div class="font-medium text-apple-dark">${task.name}</div>
-                        <div class="text-xs text-apple-gray">${this.getTaskDescription(task)}</div>
-                        <div class="text-xs text-apple-gray">${document.documentElement.lang === 'en' ? 'Date: ' : '日期: '}${task.date}</div>
-                    </div>
-                    <div class="flex space-x-2">
-                        <button class="text-apple-red text-sm" onclick="taskManager.deleteTask('${task.id}', 'single')">
-                            ${getText('delete')}
-                        </button>
+        container.innerHTML = todaySingleTasks.map(task => {
+            const isCompleted = this.isTaskCompletedOnDate(task.id, task.date);
+            return `
+                <div class="task-item ${isCompleted ? 'completed' : ''}">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="font-medium text-apple-dark">${task.name}</div>
+                            <div class="text-xs text-apple-gray">${this.getTaskDescription(task)}</div>
+                            <div class="text-xs text-apple-gray">${document.documentElement.lang === 'en' ? 'Date: ' : '日期: '}${task.date}</div>
+                            ${isCompleted ? `<div class="text-xs text-apple-green">✓ ${getText('completed')}</div>` : ''}
+                        </div>
+                        <div class="flex space-x-2">
+                            ${!isCompleted ? `
+                                <button class="text-apple-blue text-sm" onclick="taskManager.openCompletionModal('${task.id}', 'single', '${task.date}', false)">
+                                    ${getText('complete')}
+                                </button>
+                            ` : `
+                                <button class="text-apple-orange text-sm" onclick="taskManager.toggleTaskCompletion('${task.id}', 'single', '${task.date}')">
+                                    ${getText('cancelCompletion')}
+                                </button>
+                            `}
+                            <button class="text-apple-red text-sm" onclick="taskManager.deleteTask('${task.id}', 'single')">
+                                ${getText('delete')}
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     updateFutureTasksPreview() {
