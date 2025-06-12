@@ -575,6 +575,7 @@ function updateLanguage() {
     // 重新渲染动态内容
     if (window.taskManager) {
         window.taskManager.updateAllDisplays();
+        window.taskManager.updateTodayDate();
     }
 }
 
@@ -636,7 +637,7 @@ class TaskManager {
         this.updateAllDisplays();
         this.setupNotifications();
         this.startPersistTimer();
-        document.getElementById('todayDate').textContent = this.formatDate(new Date());
+        this.updateTodayDate();
         console.log(currentLanguage === 'en' ? 'Task management system initialized' : '任务管理系统初始化完成');
     }
 
@@ -1319,6 +1320,16 @@ class TaskManager {
 
         this.updateDailyTasksStatsDisplay();
         this.updateTodayTasksOverview();
+        this.updateTodayDate();
+    }
+
+    // 更新今日日期显示
+    updateTodayDate() {
+        const today = new Date();
+        const todayElement = document.getElementById('todayDate');
+        if (todayElement) {
+            todayElement.textContent = this.formatDateDisplay(today, 'full');
+        }
     }
 
     // 更新每日任务累计数据展示
@@ -2643,9 +2654,6 @@ let taskManager;
 let authManager;
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 初始化语言设置
-    initLanguage();
-    
     // 初始化任务管理器
     taskManager = new TaskManager();
     window.taskManager = taskManager; // 确保全局可访问
@@ -2654,8 +2662,6 @@ document.addEventListener('DOMContentLoaded', () => {
     authManager = new AuthManager();
     window.authManager = authManager; // 确保全局可访问
     authManager.init();
-    
-    // 语言切换事件已在TaskManager的setupEventListeners中设置，这里不需要重复设置
 }); 
 
 /* ==================== 国际化规则与检查工具 ==================== */
